@@ -8,12 +8,17 @@ disk, with an optional transparent output whose strategy is decided per provider
 (native alpha or deterministic chroma keying). The general `image-gen` skill is a
 thin shuttle over this command.
 
-Providers (Gemini/OpenRouter/fal/BytePlus are intentionally **not** included):
+Named adapters are the curated set; `custom` reaches any other backend
+(OpenRouter, fal, a local A1111/ComfyUI install, a future API) through a bridge
+command — no adapter code (see *How each provider works*):
 
 | Provider | Backend | Auth | Output truth | Transparency strategy |
 |---|---|---|---|---|
 | `codex` | codex `image_gen` | ChatGPT OAuth | inline base64 in the session rollout jsonl, decoded deterministically | **`native`** — image_gen returns a real alpha channel when asked (measured, then published) |
 | `grok` | grok Imagine `image_gen` / `image_edit` | xAI OAuth | file grok is told to write, verified by PNG magic | `chroma` — Imagine returns JPEG only; generate on a key and matte it out |
+| `zai` | Z.ai GLM-Image API | `ZAI_API_KEY` (pay-per-use, separate from a GLM Coding Plan) | hosted image URL downloaded and re-encoded through Pillow | `chroma` — the API has no alpha and no `--ref` support |
+| `gemini` | Gemini `generateContent` API (`GEMINI_BASE_URL`/`GEMINI_IMAGE_MODEL` overridable) | `GEMINI_API_KEY` (per-image billing; free-tier quota may apply) | inline base64 `inlineData`, re-encoded through Pillow | `chroma` — alpha unmeasured; generate on a key (`--ref` supported) |
+| `custom` | any backend via `SPRITE_GEN_CUSTOM_CMD` | whatever the bridge uses | the bridge's written image, re-encoded through Pillow | declared via `SPRITE_GEN_CUSTOM_TRANSPARENCY` (`chroma` default) |
 
 The strategy is declared **once**, on the adapter (`Provider.transparency`), and is
 the only place that says what a backend can do. See
@@ -24,7 +29,7 @@ the only place that says what a backend can do. See
 `--provider` is **optional**. When omitted, the backend is resolved by a fixed
 precedence (maintainer 확정 2026-07-17):
 
-1. **`SPRITE_GEN_DEFAULT_PROVIDER`** env var (`codex` or `grok`) — the user override.
+1. **`SPRITE_GEN_DEFAULT_PROVIDER`** env var (any of `codex`, `grok`, `zai`, `gemini`, `custom`) — the user override.
    An unknown value fails loud.
 2. **`codex`** — the hard default (GPT `image_gen`).
 
@@ -66,7 +71,7 @@ it is not a second visible-worker topology.
 
 ```bash
 sprite-gen gen \
-  [--provider codex|grok] # optional; default = SPRITE_GEN_DEFAULT_PROVIDER env → codex (observable grok fallback if codex is down)
+  [--provider codex|grok|zai|gemini|custom] # optional; default = SPRITE_GEN_DEFAULT_PROVIDER env → codex (observable grok fallback if codex is down)
   --prompt "…"            # or --prompt-file PROMPT.txt
   --out DEST.png \
   [--ref REF.png ...]     # repeatable; grok routes refs through image_edit
@@ -161,6 +166,24 @@ exactly that, rather than falling back on its own.
   that file's PNG magic. No `--effort` is passed (the grok-build image model 400s on
   `reasoningEffort`). With `--ref`, grok uses `image_edit` on the reference instead of
   `image_gen`.
+- **custom** — the provider-agnostic escape hatch: instead of one adapter per wire
+  format, the bridge command IS the adapter. `SPRITE_GEN_CUSTOM_CMD` is a full
+  command line run through the OS shell; the request arrives as one JSON object on
+  stdin and the bridge must write the generated image (any format Pillow decodes)
+  to its `out` path, then exit 0. A non-zero exit fails loud with the bridge's
+  stderr tail; a hanging bridge is killed at `SPRITE_GEN_GEN_TIMEOUT_SECONDS` and
+  retried once like every provider. `--model` and `--aspect-ratio` pass through in
+  the JSON — the bridged backend decides what they mean. `refs` are absolute paths
+  an edit-capable backend may read; a text-to-image-only backend should fail loud
+  when it is non-empty. Transparency is declared once via
+  `SPRITE_GEN_CUSTOM_TRANSPARENCY=native|chroma` (default `chroma`).
+
+      {"prompt": str, "model": str|null, "aspect_ratio": str|null,
+       "native_alpha": bool, "refs": ["<abs path>", ...], "out": "<abs path>"}
+
+  Any OpenAI-images-compatible endpoint bridges in ~15 lines; local installs
+  (A1111 `/sdapi/v1/txt2img`, ComfyUI) and aggregators bridge the same way. Set
+  `SPRITE_GEN_DEFAULT_PROVIDER=custom` to make it the default backend.
 
 ## Sprite-row usage
 

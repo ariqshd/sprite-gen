@@ -60,6 +60,7 @@ from sprite_gen.curate.curation import (CURATION_FILENAME, SCHEMA_VERSION, effec
                                  load_curation, load_curation_report, pixel_snap_scale,
                                  recolor_pick, run_revision, write_curation_atomic)
 from sprite_gen.frames.extract import heal_run, load_consistent_frames_manifest
+from sprite_gen.gen import PROVIDERS
 from sprite_gen.spec.layout import frames_dir_rel, raw_rel, row_frame_rel, row_orig_rel, state_frame_total
 from sprite_gen.spec.runio import load_request, publish_guard, read_guard, write_request
 from sprite_gen._modules import qualified
@@ -1511,7 +1512,7 @@ class CurationHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": f"unknown state: {state}"}, 400)
                     return
                 provider = str(payload.get("provider") or "codex")
-                if provider not in ("codex", "grok"):
+                if provider not in PROVIDERS:
                     self._send_json({"error": f"unknown provider: {provider}"}, 400)
                     return
                 result = run_reroll(self.run_dir, state, provider)

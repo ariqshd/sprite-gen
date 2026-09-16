@@ -2,7 +2,9 @@
 """Unified image generation layer for sprite-gen.
 
 Single source of truth for provider-backed image generation: codex (`image_gen`,
-ChatGPT OAuth) and grok (Imagine, xAI OAuth). One call = prompt (+ optional refs)
+ChatGPT OAuth), grok (Imagine, xAI OAuth), zai (GLM-Image API), gemini
+(generateContent API) and custom (any backend bridged through a user command —
+SPRITE_GEN_CUSTOM_CMD). One call = prompt (+ optional refs)
 -> one verified raw PNG, with an optional deterministic transparent chroma
 post-process. The general `image-gen` skill is a thin shuttle over `sprite-gen gen`.
 
@@ -12,7 +14,7 @@ in each adapter): codex `image_gen` returns a genuinely transparent PNG when ask
 `--transparent` follows the provider's strategy unless `--alpha-mode` overrides it.
 
 CLI:
-    sprite-gen gen --provider codex|grok --prompt "..." --out DEST.png
+    sprite-gen gen --provider codex|grok|zai|gemini|custom --prompt "..." --out DEST.png
         [--ref REF.png ...] [--transparent [--alpha-mode auto|native|chroma]
         [--chroma-key magenta|green]] [--white-check CHECK.png] [--model ID]
         [--aspect-ratio 1:1] [--report REPORT.json] [--keep-session]
@@ -45,9 +47,12 @@ from .base import (
     verify_png,
 )
 from .codex_provider import CodexProvider
+from .custom_provider import CustomProvider
+from .gemini_provider import GeminiProvider
 from .grok_provider import GrokProvider
+from .zai_provider import ZaiProvider
 
-PROVIDERS = ("codex", "grok")
+PROVIDERS = ("codex", "grok", "zai", "gemini", "custom")
 # `--alpha-mode`: `auto` reads the provider's declared strategy (the SSoT);
 # `native` / `chroma` force one. Forcing `native` on a chroma-only provider fails
 # loud — a strategy the backend cannot execute is not a fallback candidate.
@@ -71,6 +76,12 @@ def _make_provider(name: str, *, keep_session: bool):
         return CodexProvider(keep_session=keep_session)
     if name == "grok":
         return GrokProvider()
+    if name == "zai":
+        return ZaiProvider()
+    if name == "gemini":
+        return GeminiProvider()
+    if name == "custom":
+        return CustomProvider()
     raise SystemExit(f"gen: unknown provider {name!r}; expected one of {', '.join(PROVIDERS)}")
 
 

@@ -50,7 +50,7 @@ def guide(kind: str, *, stage: str = "start", base_image: Path | None = None, re
                 blocked.append({"provider": provider, "reason": state["reason"]})
             elif state["billing"] == "api-credit":
                 if not confirm_api_billing:
-                    questions.append({"field": "confirm_api_billing", "question": "그록 영상에 별도 API 크레딧을 사용할까요?", "options": {"yes": "사용", "no": "구독 로그인으로 변경"}})
+                    questions.append({"field": "confirm_api_billing", "question": f"{provider} 생성은 별도 API 크레딧(종량 과금)을 사용할까요?", "options": {"yes": "사용", "no": "구독 로그인으로 변경"}})
             elif provider not in confirmed_access and not any(q["field"] == f"access_{provider}" for q in questions):
                 questions.append({"field": f"access_{provider}", "question": f"{FIELDS['image_provider']['options'][provider]} 계정의 구독과 이미지/영상 이용 가능 여부를 확인해 주세요.",
                                   "options": {"yes": "사용 가능", "no": "사용 불가"}})

@@ -1,7 +1,7 @@
 ---
 name: sprite-gen
 version: 2.1.0
-description: "Generates images and game sprites through GPT or Grok with guided provider choices, separate saved defaults, automatic cleanup and optional curation. Handles sprite requests, ordinary image generation/editing, chroma removal, animation atlases, video loops, 큐레이션뷰, image candidates, 팔레트 스왑, palette swap, recolor, rig layers and engine exports."
+description: "Generates images and game sprites through GPT, Grok, Z.ai, Gemini or a custom bridge (any image backend) with guided provider choices, separate saved defaults, automatic cleanup and optional curation. Handles sprite requests, ordinary image generation/editing, chroma removal, animation atlases, video loops, 큐레이션뷰, image candidates, 팔레트 스왑, palette swap, recolor, rig layers and engine exports."
 license: Apache-2.0
 depends_on:
   required_bins:
@@ -62,8 +62,11 @@ Pass choices already stated in the request. The guide checks access, combines ex
 | Task | Entry | Contract |
 |---|---|---|
 | GPT image sprites | `prepare`, `gen-set --provider codex`, `extract`, compose and QA | [atlas-workflow](docs/atlas-workflow.md) |
+| Z.ai (GLM-Image) image sprites | same atlas steps with `gen-set --provider zai` (needs `ZAI_API_KEY`; no `--ref` support) | [atlas-workflow](docs/atlas-workflow.md) |
+| Gemini image sprites | same atlas steps with `gen-set --provider gemini` (needs `GEMINI_API_KEY`; `--ref` supported) | [atlas-workflow](docs/atlas-workflow.md) |
 | Grok video sprites | `video-set` | [video-pipeline](docs/video-pipeline.md) |
-| Ordinary image or edit | `gen --provider codex` or `gen --provider grok` | [gen](docs/gen.md) |
+| Any other image backend | `gen --provider custom` with `SPRITE_GEN_CUSTOM_CMD` bridging it (OpenRouter, fal, local A1111/ComfyUI, …) | [gen](docs/gen.md) |
+| Ordinary image or edit | `gen --provider codex`, `gen --provider grok`, `gen --provider zai`, `gen --provider gemini`, or `gen --provider custom` | [gen](docs/gen.md) |
 | Base and direction anchors | `anchor` | [directional-anchor-workflow](docs/directional-anchor-workflow.md) |
 | Curation view or existing image candidates | `curation`, `unpack-atlas --pngs-dir` | [curation](docs/curation.md) |
 | Uniform background removal or imported sheets | `cutout`, `slice-sheet` | [sheet-slicing](docs/sheet-slicing.md) |

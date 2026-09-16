@@ -874,7 +874,7 @@ def test_generate_image_empty_prompt_fails_loud(tmp_path: Path) -> None:
 
 def test_unknown_provider_fails_loud(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
-        gen._make_provider("gemini", keep_session=False)
+        gen._make_provider("sora", keep_session=False)
 
 
 # ── Default-provider policy (maintainer 2026-07-17): default = codex, observable grok
@@ -894,7 +894,7 @@ def test_resolve_default_provider_env_override(monkeypatch) -> None:
 
 
 def test_resolve_default_provider_invalid_env_fails_loud(monkeypatch) -> None:
-    monkeypatch.setenv(gen.DEFAULT_PROVIDER_ENV, "gemini")
+    monkeypatch.setenv(gen.DEFAULT_PROVIDER_ENV, "sora")
     with pytest.raises(SystemExit):
         gen.resolve_default_provider()
 

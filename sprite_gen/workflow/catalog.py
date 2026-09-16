@@ -7,10 +7,15 @@ MOTION_METHODS = {
                  "steps": ["prepare", "gen-set", "extract", "compose-atlas", "compose-gif"]},
     "grok-video": {"label": "그록 영상", "provider": "grok", "doc": "docs/video-pipeline.md",
                    "steps": ["video-set"]},
+    "zai-rows": {"label": "Z.ai 이미지 스프라이트", "provider": "zai", "doc": "docs/atlas-workflow.md",
+                 "steps": ["prepare", "gen-set", "extract", "compose-atlas", "compose-gif"]},
+    "gemini-rows": {"label": "Gemini 이미지 스프라이트", "provider": "gemini", "doc": "docs/atlas-workflow.md",
+                    "steps": ["prepare", "gen-set", "extract", "compose-atlas", "compose-gif"]},
 }
+PROVIDER_LABELS = {"codex": "지피티", "grok": "그록", "zai": "Z.ai", "gemini": "Gemini", "custom": "커스텀 브리지"}
 FIELDS = {
-    "image_provider": {"options": dict(zip(PROVIDERS, ("지피티", "그록"))),
-                       "question": "이미지를 지피티로 만들까요, 그록으로 만들까요?"},
+    "image_provider": {"options": {p: PROVIDER_LABELS.get(p, p) for p in PROVIDERS},
+                       "question": "이미지를 지피티, 그록, Z.ai 중 무엇으로 만들까요?"},
     "motion_method": {"options": {k: v["label"] for k, v in MOTION_METHODS.items()},
                       "question": "동작을 그록 영상으로 만들까요, 지피티 이미지 스프라이트로 만들까요?"},
     "curation": {"options": {"open": "열기", "skip": "열지 않기"},

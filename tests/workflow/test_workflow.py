@@ -112,7 +112,7 @@ def test_first_sprite_request_and_existing_base(ready_login, tmp_path):
 @pytest.mark.parametrize("base_provider", ["codex", "grok"])
 @pytest.mark.parametrize("method", MOTION_METHODS)
 def test_every_sprite_combination_keeps_base_and_motion_distinct(ready_login, base_provider, method):
-    view = guide.guide("sprite", choices={"image_provider": base_provider, "motion_method": method}, confirmed_access=("codex", "grok"))
+    view = guide.guide("sprite", choices={"image_provider": base_provider, "motion_method": method}, confirmed_access=("codex", "grok", "zai", "gemini"))
     assert view["status"] == "ready"
     assert view["pipeline"]["image_provider"] == base_provider
     assert view["pipeline"]["generation_provider"] == MOTION_METHODS[method]["provider"]

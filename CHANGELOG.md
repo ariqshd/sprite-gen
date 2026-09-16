@@ -2,6 +2,12 @@
 
 All notable public changes to `sprite-gen` are recorded here. Versions track the `version:` field in `SKILL.md` and `pyproject.toml`.
 
+## Unreleased (local fork)
+
+- Added the `custom` image provider — the provider-agnostic escape hatch: any image backend (OpenAI-images-compatible endpoints, OpenRouter, fal, local A1111/ComfyUI) is bridged through `SPRITE_GEN_CUSTOM_CMD`, which receives the generation request as JSON on stdin and writes the image to a named path. Transparency declared once via `SPRITE_GEN_CUSTOM_TRANSPARENCY` (`chroma` default).
+- Added the `zai` (GLM-Image, `ZAI_API_KEY`) and `gemini` (`GEMINI_API_KEY`) image providers.
+- The curation server's reroll route accepts every registered provider instead of the hardcoded `codex`/`grok` pair; the workflow guide and catalog cover the new providers.
+
 ## v2.1.0 - Guided requests and saved defaults
 
 - Added two user journeys: sprites (base-image provider, then GPT rows or Grok video) and ordinary images (provider). The read-only `workflow` command checks credentials, resolves request choices over saved defaults and returns the next questions and existing engine route.
