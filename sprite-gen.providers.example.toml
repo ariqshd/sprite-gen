@@ -32,6 +32,16 @@ billed = true
 max_refs = 1
 quality_levels = ["auto"]
 
+# Qwen-Image-2.1 on local ComfyUI (INT8 + PE-I2I text encoder)
+[providers.qwen21]
+kind = "comfy"
+url = "http://127.0.0.1:8188"
+workflow = "workflows/comfy_qwen21_i2i.json"
+# For text-only stills use workflows/comfy_qwen21_t2i.json instead.
+transparency = "chroma"
+billed = false
+max_refs = 1
+
 # [providers.fal-schnell]
 # kind = "openai_compatible"
 # base_url = "https://fal.run/openai/v1"
