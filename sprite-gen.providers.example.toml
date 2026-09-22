@@ -1,0 +1,42 @@
+# sprite-gen custom providers — copy to sprite-gen.providers.toml and edit.
+# Discovery: --providers-config PATH | $SPRITE_GEN_PROVIDERS_CONFIG |
+#            ./sprite-gen.providers.toml | <repo>/sprite-gen.providers.toml
+#
+# kind:
+#   openai_compatible — POST {base_url}/images/generations|edits (OpenRouter,
+#                       fal OpenAI shim, many local servers)
+#   comfy             — ComfyUI /prompt workflow (local SDXL / FLUX / Qwen)
+#
+# billed = true  → explicit-only (--provider NAME required) + stderr charge notice
+# transparency   → "chroma" (default; generate on a key, matte downstream)
+#                  or "native" (host returns real alpha)
+
+[providers.comfy-local]
+kind = "comfy"
+url = "http://127.0.0.1:8188"
+workflow = "workflows/comfy_txt2img.json"
+# checkpoint = "sd_xl_base_1.0.safetensors"
+# negative = "blurry, lowres, text, watermark"
+transparency = "chroma"
+billed = false
+max_refs = 1
+# sizes = { "1:1" = [1024, 1024], "16:9" = [1280, 720] }
+
+[providers.openrouter-flux]
+kind = "openai_compatible"
+base_url = "https://openrouter.ai/api/v1"
+model = "black-forest-labs/flux-schnell"
+api_key_env = "OPENROUTER_API_KEY"
+transparency = "chroma"
+billed = true
+max_refs = 1
+quality_levels = ["auto"]
+
+# [providers.fal-schnell]
+# kind = "openai_compatible"
+# base_url = "https://fal.run/openai/v1"
+# model = "fal-ai/flux/schnell"
+# api_key_env = "FAL_KEY"
+# transparency = "chroma"
+# billed = true
+# max_refs = 1

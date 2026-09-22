@@ -27,3 +27,11 @@ CLAUDE.md
 # build artifacts the release workflow produces
 /build/
 /dist/
+
+# local pipeline demos / smoke outputs (regenerated; ~19MB of PNGs)
+/runs/
+/smoke-out/
+smoke.billed.toml
+smoke.cli.toml
+smoke.providers.toml
+*.sg-rwlock

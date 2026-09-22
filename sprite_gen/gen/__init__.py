@@ -61,11 +61,12 @@ from .base import (
     provider_subprocess_env,
     verify_png,
 )
-from .codex_provider import CodexProvider
-from .grok_provider import GrokProvider
-from .openai_provider import OpenAIProvider
+from . import registry as provider_registry
 
-PROVIDERS = ("codex", "grok", "openai")
+# Built-in names plus any configured custom providers (TOML). Resolved at call
+# time so `--providers-config` / SPRITE_GEN_PROVIDERS_CONFIG can add backends
+# without reinstalling the package.
+PROVIDERS = provider_registry.BUILTIN_PROVIDER_NAMES
 # `--alpha-mode`: `auto` reads the provider's declared strategy (the SSoT);
 # `native` / `chroma` force one. Forcing `native` on a chroma-only provider fails
 # loud — a strategy the backend cannot execute is not a fallback candidate.
@@ -84,18 +85,23 @@ HARD_DEFAULT_PROVIDER = "codex"
 # Providers that may be reached without being named. A per-call API-billed backend
 # is not one of them: it is explicit-only, so no default, preference or fallback
 # can route a subscription user onto metered credit (구독 우선 불변식 1-2).
-EXPLICIT_ONLY_PROVIDERS = ("openai",)
+# Built-in openai plus any custom provider with `billed = true` in the config.
+EXPLICIT_ONLY_PROVIDERS = provider_registry.BUILTIN_EXPLICIT_ONLY
 _CODEX_PROBE_TIMEOUT_SECONDS = 15
 
 
-def _make_provider(name: str, *, keep_session: bool):
-    if name == "codex":
-        return CodexProvider(keep_session=keep_session)
-    if name == "grok":
-        return GrokProvider()
-    if name == "openai":
-        return OpenAIProvider()
-    raise SystemExit(f"gen: unknown provider {name!r}; expected one of {', '.join(PROVIDERS)}")
+def _provider_names(config_path: Path | None = None) -> tuple[str, ...]:
+    return provider_registry.all_provider_names(config_path)
+
+
+def _explicit_only(config_path: Path | None = None) -> frozenset[str]:
+    return provider_registry.explicit_only_names(config_path)
+
+
+def _make_provider(name: str, *, keep_session: bool, config_path: Path | None = None):
+    return provider_registry.make_provider(
+        name, keep_session=keep_session, config_path=config_path
+    )
 
 
 # Why `auto` steps down to chroma when reference images are attached (2026-09-08
@@ -166,7 +172,7 @@ def _codex_available() -> tuple[bool, str]:
     return True, ""
 
 
-def resolve_default_provider() -> tuple[str, dict[str, str] | None]:
+def resolve_default_provider(config_path: Path | None = None) -> tuple[str, dict[str, str] | None]:
     """Resolve the provider to use when `--provider` is not given.
 
     Precedence: SPRITE_GEN_DEFAULT_PROVIDER env > hard default (codex). When the
@@ -178,19 +184,21 @@ def resolve_default_provider() -> tuple[str, dict[str, str] | None]:
     not out of the env, and not as a fallback target. A codex outage reaches grok
     (another subscription route) or nothing at all — never metered API credit.
     """
+    names = _provider_names(config_path)
+    explicit = _explicit_only(config_path)
     configured = os.environ.get(DEFAULT_PROVIDER_ENV, "").strip()
     if configured:
-        if configured not in PROVIDERS:
+        if configured not in names:
             raise SystemExit(
                 f"gen: {DEFAULT_PROVIDER_ENV}={configured!r} is not a known provider; "
-                f"expected one of {', '.join(PROVIDERS)}"
+                f"expected one of {', '.join(names)}"
             )
-        if configured in EXPLICIT_ONLY_PROVIDERS:
+        if configured in explicit:
             raise SystemExit(
                 f"gen: {DEFAULT_PROVIDER_ENV}={configured!r} is refused — {configured} bills per call "
                 f"against an API key and must be named explicitly (`--provider {configured}`), never "
-                f"stood up as a default. Use {', '.join(p for p in PROVIDERS if p not in EXPLICIT_ONLY_PROVIDERS)} "
-                "for a subscription route."
+                f"stood up as a default. Use {', '.join(p for p in names if p not in explicit)} "
+                "for a subscription or local route."
             )
         default, source = configured, DEFAULT_PROVIDER_ENV
     else:
@@ -257,6 +265,7 @@ def generate_image(
     trim_alpha: bool = False,
     keep_session: bool = False,
     workdir: Path | None = None,
+    providers_config: Path | None = None,
 ) -> GenResult:
     """Generate one image and return a GenResult. Raises SystemExit on any failure."""
     prompt = (prompt or "").strip()
@@ -272,7 +281,14 @@ def generate_image(
 
     if refs and facing is not None:
         prompt += "\n\n" + facing_mod.prompt_suffix(facing)
-    backend = _make_provider(provider, keep_session=keep_session)
+    # Call shape stays backward-compatible for tests that stub `_make_provider`
+    # with (name, *, keep_session) only; config_path is passed solely when set.
+    if providers_config is not None:
+        backend = _make_provider(
+            provider, keep_session=keep_session, config_path=providers_config
+        )
+    else:
+        backend = _make_provider(provider, keep_session=keep_session)
     # Decided before the model runs: the strategy shapes the transport prompt
     # (native asks for alpha) and the post-process (chroma keys it out).
     strategy: str | None = None
@@ -374,11 +390,14 @@ def _run(args: argparse.Namespace) -> int:
     # Explicit --provider is honored verbatim; only the unspecified case resolves the
     # default (env > codex) with an observable codex->grok availability fallback.
     provider = args.provider
+    providers_config = getattr(args, "providers_config", None)
+    # Name membership is enforced by `_make_provider` / the registry (which tests
+    # may stub). Do not pre-reject here — a monkeypatched factory is a valid backend.
     fallback: dict[str, str] | None = None
     if provider is not None:
         resolved_from = "explicit"
     else:
-        provider, fallback = resolve_default_provider()
+        provider, fallback = resolve_default_provider(providers_config)
         if fallback:
             resolved_from = f"fallback-from-{fallback['from']}"
             print(
@@ -409,6 +428,7 @@ def _run(args: argparse.Namespace) -> int:
         trim_alpha=bool(getattr(args, "trim_alpha", False)),
         keep_session=args.keep_session,
         workdir=args.workdir,
+        providers_config=providers_config,
     )
     payload = result.to_dict()
     # `provider` in the payload is always the backend that actually generated the
@@ -453,13 +473,23 @@ def _build_parser() -> argparse.ArgumentParser:
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--provider",
-        choices=PROVIDERS,
         default=None,
         help=(
-            f"generation backend; default resolves via {DEFAULT_PROVIDER_ENV} env "
-            "then codex, with an observable grok fallback if codex is unavailable. "
-            "codex and grok run on a subscription login; openai is for servers and SaaS "
-            "and is billed per call on OPENAI_API_KEY, so it runs only when named here"
+            "generation backend: built-in codex|grok|openai, or any name declared in "
+            "the providers config (kind = openai_compatible | comfy). Default resolves "
+            f"via {DEFAULT_PROVIDER_ENV} env then codex, with an observable grok fallback "
+            "if codex is unavailable. Billed backends (openai, or custom billed = true) "
+            "run only when named here"
+        ),
+    )
+    parser.add_argument(
+        "--providers-config",
+        type=Path,
+        default=None,
+        help=(
+            "TOML file declaring custom providers (also "
+            f"{provider_registry.CONFIG_ENV}, or ./{provider_registry.CONFIG_FILENAME}). "
+            "See sprite-gen.providers.example.toml"
         ),
     )
     parser.add_argument("--prompt")

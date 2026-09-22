@@ -244,7 +244,14 @@ def run_set(
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--run-dir", required=True, type=Path, help="a prepared run (sprite-request.json, prompts/, references/layout-guides/)")
     parser.add_argument("--states", help="comma list; default = every non-mirrored state in the request")
-    parser.add_argument("--provider", choices=("codex", "grok"), help="honoured verbatim; default resolves like `gen` (env > codex, observable failover)")
+    parser.add_argument(
+        "--provider",
+        default=None,
+        help=(
+            "honoured verbatim (built-in or a providers-config name); "
+            "default resolves like `gen` (env > codex, observable failover)"
+        ),
+    )
     parser.add_argument("--model")
     parser.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY, help=f"rows generated at once (default {DEFAULT_CONCURRENCY})")
     parser.add_argument("--force", action="store_true", help="regenerate rows that already exist")

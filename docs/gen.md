@@ -8,12 +8,12 @@ disk, with an optional transparent output whose strategy is decided per provider
 (native alpha or deterministic chroma keying). The general `image-gen` skill is a
 thin shuttle over this command.
 
-Providers are the backends the maintainer uses day to day. Others (Gemini,
-OpenRouter, fal, BytePlus, …) are absent because nobody here uses them, not because
-of a design objection; a contributed provider is welcome when its author will keep
-maintaining it ([#37](https://github.com/aldegad/sprite-gen/issues/37)). A backend
-whose terms forbid reaching a subscription login from third-party software is not
-added, however it is invoked
+Providers are the backends the maintainer uses day to day, plus any **custom
+provider declared in config** (see [Custom providers](#custom-providers-provider-agnostic-backends)).
+Others (Gemini, OpenRouter, fal, BytePlus, a local ComfyUI, …) ship as config
+rather than hard-coded adapters. A backend whose terms forbid reaching a
+subscription login from third-party software is not added as a built-in, however
+it is invoked
 ([#36](https://github.com/aldegad/sprite-gen/pull/36), Antigravity).
 
 | Provider | Backend | Auth | Billing | Output truth | Transparency strategy |
@@ -321,6 +321,45 @@ On a 4-frame idle mushroom row, grok generated
 in ~18.4 s vs codex ~39.0 s (~2.1× faster). codex adhered better to negative constraints
 ("no grid lines"); grok added faint cell dividers. Pick per need: grok for speed, codex
 for tighter prompt adherence.
+
+## Custom providers (provider-agnostic backends)
+
+A local ComfyUI (including the stack [StableGen](https://github.com/sakalond/StableGen)
+installs), OpenRouter, fal's OpenAI shim, or any Images-API-compatible host is
+declared in TOML — not by forking this package. Copy
+`sprite-gen.providers.example.toml` to `sprite-gen.providers.toml` and edit.
+
+Discovery order: `--providers-config PATH` → `$SPRITE_GEN_PROVIDERS_CONFIG` →
+`./sprite-gen.providers.toml` → `<repo>/sprite-gen.providers.toml`.
+
+| `kind` | Speaks | Typical hosts |
+|---|---|---|
+| `openai_compatible` | `POST {base_url}/images/generations` · `/images/edits` | OpenRouter, fal OpenAI shim, local Images-API servers |
+| `comfy` | ComfyUI `POST /prompt` + `/history` + `/view` | local SDXL / FLUX / Qwen (StableGen backend) |
+
+```bash
+# local ComfyUI atlas row (no API charge)
+sprite-gen gen --provider comfy-local --prompt "…" --out raw.png \
+  --providers-config sprite-gen.providers.toml
+
+# metered OpenRouter route — named explicitly, charge announced on stderr
+sprite-gen gen --provider openrouter-flux --prompt "…" --out raw.png
+```
+
+Rules that stay true for custom backends (구독 우선 불변식):
+
+- **`billed = true`** → explicit-only: never a default, never a fallback target,
+  never saved as a preference. Every call prints the charge before it leaves.
+- **`billed = false`** (local ComfyUI) may be a `SPRITE_GEN_DEFAULT_PROVIDER`.
+- `transparency` is declared once (`chroma` or `native`) and is the only source of
+  what the backend can do — same contract as the built-in adapters.
+- `--quality` / `--resolution` outside the config's declared surface **fail**;
+  they are never silently dropped from a body you are about to pay for.
+- Extract / compose / curation stay local and provider-agnostic: adapters only
+  produce raw PNG candidates.
+
+Video (`video-set` / `video-loop`) remains Grok-only for now; a local i2v host is
+a separate `VideoProvider` track.
 
 ## Related
 
